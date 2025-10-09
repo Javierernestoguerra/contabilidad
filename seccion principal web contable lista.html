@@ -1,0 +1,354 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Control de Fondos CUP/USD</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0;font-family:Segoe UI,Arial,sans-serif}
+  body{background:#f9fafb;color:#0f172a;display:flex;flex-direction:column;min-height:100vh}
+  header{background:#ffffff;border-bottom:1px solid #e2e8f0;padding:8px 12px;display:flex;justify-content:flex-end;align-items:center;gap:10px}
+  #user-info{font-size:14px;display:flex;align-items:center;gap:10px}
+  #logout{background:#dc2626;color:white;border:none;padding:6px 10px;border-radius:6px;cursor:pointer}
+  main{flex:1;display:flex;flex-direction:column}
+  #content{flex:1;display:flex;flex-direction:column;gap:8px;padding:8px}
+  .topbar{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+  .chip{padding:4px 8px;border:1px solid #e2e8f0;border-radius:999px;background:#ffffff;font-size:12px;cursor:pointer}
+  .chip strong{font-weight:800}
+  .chip.active{border-color:#2563eb;color:#2563eb;background:#eff6ff}
+  .filter{padding:6px 8px;border:1px solid #cbd5e1;border-radius:8px;font-size:12px;background:#fff}
+  .btn{padding:8px 12px;border:none;border-radius:8px;font-weight:600;cursor:pointer}
+  .btn.green{background:#16a34a;color:#fff}
+  .btn.red{background:#dc2626;color:#fff}
+  .table-wrap{overflow:auto;border:1px solid #e2e8f0;border-radius:10px;background:#fff}
+  table{width:100%;border-collapse:collapse}
+  th,td{border-bottom:1px solid #e5e7eb;padding:6px 6px;font-size:13px;vertical-align:middle}
+  th{background:#f1f5f9;color:#0f172a;text-align:left;position:sticky;top:0;z-index:1}
+  td.num{text-align:right;font-variant-numeric:tabular-nums}
+  tr.verified{background:#dcfce7 !important}
+  .nowrap{white-space:nowrap}
+  .pagination{display:flex;gap:8px;align-items:center;justify-content:flex-end;margin-top:8px}
+  .pagination button{padding:8px 12px;border:1px solid #cbd5e1;border-radius:8px;background:#fff;cursor:pointer}
+  .modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.4);display:flex;align-items:center;justify-content:center;z-index:100}
+  .modal{background:#fff;padding:16px;border-radius:12px;width:92%;max-width:420px;position:relative;display:flex;flex-direction:column;gap:10px}
+  .modal .close{position:absolute;right:10px;top:10px;background:transparent;border:none;font-size:18px;cursor:pointer}
+  .modal label{display:flex;flex-direction:column;gap:6px}
+  .modal input{padding:10px;border:1px solid #cbd5e1;border-radius:8px}
+  .modal .ok{background:#2563eb;color:#fff;border:none;padding:10px;border-radius:8px;font-weight:700;cursor:pointer}
+  .login{margin:auto;text-align:center;flex:1;display:flex;flex-direction:column;justify-content:center;align-items:center;padding:20px}
+  .login h2{margin-bottom:16px}
+  .login button{margin:6px;padding:10px 18px;border:none;border-radius:8px;background:#2563eb;color:white;cursor:pointer}
+  #toast{position:fixed;bottom:16px;right:16px;background:#16a34a;color:white;padding:10px 16px;border-radius:8px;opacity:0;transition:opacity .25s}
+  #toast.show{opacity:1}
+  .hidden{display:none !important}
+</style>
+</head>
+<body>
+<header>
+  <div id="user-info" style="display:none">
+    Sesión: <span id="activeUser"></span>
+    <button id="logout">Cerrar sesión</button>
+  </div>
+</header>
+<main>
+  <div id="content" class="hidden">
+    <div class="topbar">
+      <button id="chipCUP" class="chip active" title="Ver CUP">CUP: <strong id="totalCUP">0</strong></button>
+      <button id="chipUSD" class="chip" title="Ver USD">USD: <strong id="totalUSD">0</strong></button>
+      <select id="filterSelect" class="filter" title="Filtrar">
+        <option value="ALL">Todos</option>
+        <option value="TODAY">Hoy</option>
+        <option value="YESTERDAY">Ayer</option>
+        <option value="TODAY_YESTERDAY">Ayer-Hoy</option>
+        <option value="LAST_CHECK">Último CheckBox</option>
+      </select>
+      <div style="margin-left:auto;display:flex;gap:6px">
+        <button id="btnEntrada" class="btn green">Entrada</button>
+        <button id="btnSalida" class="btn red">Salida</button>
+      </div>
+    </div>
+
+    <div class="table-wrap">
+      <table id="tabla">
+        <thead>
+          <tr>
+            <th style="width:1%;" class="nowrap">Fecha</th>
+            <th class="num">Entradas</th>
+            <th class="num">Salidas</th>
+            <th style="min-width:120px">Descripción</th>
+            <th class="num">Saldo</th>
+            <th class="num" style="width:1%">✔</th>
+            <th class="num" style="width:1%">✏️</th>
+            <th class="num" style="width:1%">🗑</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+
+    <div class="pagination">
+      <span id="pageInfo" style="margin-right:auto;color:#475569"></span>
+      <button id="prevPage">◀️ Anterior</button>
+      <button id="nextPage">Siguiente ▶️</button>
+    </div>
+  </div>
+
+  <div id="login" class="login">
+    <h2>Iniciar sesión</h2>
+    <button data-user="Javi">Javi</button>
+    <button data-user="Suegro">Suegro</button>
+    <button data-user="Suegra">Suegra</button>
+  </div>
+</main>
+<div id="toast">Operación registrada correctamente</div>
+
+<template id="rowTpl">
+  <tr>
+    <td data-k="fecha" class="nowrap"></td>
+    <td data-k="entradas" class="num"></td>
+    <td data-k="salidas" class="num"></td>
+    <td data-k="desc"></td>
+    <td data-k="saldo" class="num"></td>
+    <td class="num"><input type="checkbox" class="check" title="Verificado" /></td>
+    <td class="num"><button class="edit" title="Editar" style="background:transparent;border:none;cursor:pointer;font-size:16px">✏️</button></td>
+    <td class="num">
+      <button class="del" title="Eliminar" style="background:transparent;border:none;cursor:pointer;display:inline-flex;align-items:center" aria-label="Eliminar">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#dc2626" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="3 6 5 6 21 6"/>
+          <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/>
+          <path d="M10 11v6"/>
+          <path d="M14 11v6"/>
+          <path d="M9 6V4a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2"/>
+        </svg>
+      </button>
+    </td>
+  </tr>
+</template>
+
+<script>
+(function(){
+  const $=s=>document.querySelector(s);
+  let user=null;
+  let ops=JSON.parse(localStorage.getItem('ops')||'[]'); // {id, fechaISO, usuario, moneda, tipo, monto, desc, verified}
+  let currentCurrency='CUP'; // 'CUP' | 'USD'
+  let currentFilter='ALL'; // ALL | TODAY | YESTERDAY | TODAY_YESTERDAY | LAST_CHECK
+  const PAGE_SIZE=15; let page=1;
+
+  // === Utilidades ===
+  function fmtNum(n){return n.toLocaleString('es-ES',{maximumFractionDigits:2})}
+  function fmtDateShortISO(iso){const d=new Date(iso);const dd=d.getDate();const mm=d.getMonth()+1;const yy=String(d.getFullYear()).slice(-2);return `${dd}-${mm}-${yy}`}
+  function toLocalYMD(date){const d=new Date(date);return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;}
+  function ymdOffset(days){const d=new Date();d.setHours(0,0,0,0);d.setDate(d.getDate()+days);return toLocalYMD(d);}  
+  function nowISO(){return new Date().toISOString()}
+  function save(){localStorage.setItem('ops',JSON.stringify(ops))}
+  function toast(msg='Operación registrada correctamente'){const t=$('#toast');t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),1700)}
+
+  // === Cálculos ===
+  function calcTotals(){
+    const asc=[...ops].sort((a,b)=>new Date(a.fechaISO)-new Date(b.fechaISO));
+    let saldoCUP=0, saldoUSD=0; const byId=new Map();
+    asc.forEach(o=>{
+      const delta=(o.tipo==='Entrada'?1:-1)*(o.monto||0);
+      if(o.moneda==='CUP'){saldoCUP+=delta; byId.set(o.id,{saldo:saldoCUP})}
+      else {saldoUSD+=delta; byId.set(o.id,{saldo:saldoUSD})}
+    });
+    $('#totalCUP').textContent=fmtNum(saldoCUP);
+    $('#totalUSD').textContent=fmtNum(saldoUSD);
+    return byId;
+  }
+
+  function applyFilterOnList(list){
+    if(currentFilter==='ALL') return list;
+    const today=ymdOffset(0), yesterday=ymdOffset(-1);
+    if(currentFilter==='TODAY') return list.filter(o=>toLocalYMD(o.fechaISO)===today);
+    if(currentFilter==='YESTERDAY') return list.filter(o=>toLocalYMD(o.fechaISO)===yesterday);
+    if(currentFilter==='TODAY_YESTERDAY') return list.filter(o=>{const ymd=toLocalYMD(o.fechaISO);return ymd===today||ymd===yesterday;});
+    if(currentFilter==='LAST_CHECK'){
+      const asc=[...list].sort((a,b)=>new Date(a.fechaISO)-new Date(b.fechaISO));
+      const lastIdx=asc.map((o,i)=>({o,i})).reverse().find(x=>x.o.verified)?.i ?? -1;
+      if(lastIdx===-1) return asc;
+      return asc.slice(lastIdx);
+    }
+    return list;
+  }
+
+  function filteredRows(){
+    const saldoMap=calcTotals();
+    let base=[...ops]
+      .filter(o=>o.moneda===currentCurrency)
+      .sort((a,b)=>new Date(a.fechaISO)-new Date(b.fechaISO));
+    base=applyFilterOnList(base);
+    return base.map(o=>({
+      ...o,
+      saldo:(saldoMap.get(o.id)||{}).saldo||0,
+      entradas:o.tipo==='Entrada'?o.monto:0,
+      salidas:o.tipo==='Salida'?o.monto:0
+    }));
+  }
+
+  function getTotalPages(){
+    let list=[...ops].filter(o=>o.moneda===currentCurrency).sort((a,b)=>new Date(a.fechaISO)-new Date(b.fechaISO));
+    list=applyFilterOnList(list);
+    const count=list.length;
+    return Math.max(1, Math.ceil(count / PAGE_SIZE));
+  }
+
+  function render(){
+    const tbody=$('#tabla tbody');tbody.innerHTML='';
+    const rows=filteredRows();
+
+    const total=rows.length; const totalPages=Math.max(1,Math.ceil(total/PAGE_SIZE));
+    if(page>totalPages) page=totalPages;
+    const start=(page-1)*PAGE_SIZE; const end=start+PAGE_SIZE; const pageRows=rows.slice(start,end);
+
+    const tpl=$('#rowTpl');
+    pageRows.forEach(o=>{
+      const tr=tpl.content.cloneNode(true);
+      tr.querySelector('[data-k="fecha"]').textContent=fmtDateShortISO(o.fechaISO);
+      tr.querySelector('[data-k="entradas"]').textContent=o.entradas?fmtNum(o.entradas):'';
+      tr.querySelector('[data-k="salidas"]').textContent=o.salidas?fmtNum(o.salidas):'';
+      tr.querySelector('[data-k="desc"]').textContent=o.desc||'';
+      tr.querySelector('[data-k="saldo"]').textContent=fmtNum(o.saldo||0);
+
+      const row=tr.querySelector('tr');
+      if(o.verified) row.classList.add('verified');
+      const chk=tr.querySelector('.check');
+      chk.checked=!!o.verified;
+      chk.addEventListener('change',()=>{
+        const val = chk.checked;
+        const idx = ops.findIndex(x=>x.id===o.id);
+        if(idx!==-1){ ops[idx].verified = val; save(); }
+        if(val) row.classList.add('verified'); else row.classList.remove('verified');
+      });
+
+      tr.querySelector('.edit').addEventListener('click',()=> openEditModal(o.id));
+      tr.querySelector('.del').addEventListener('click',()=>{
+        if(confirm('¿Seguro que deseas eliminar esta operación?')){
+          ops=ops.filter(x=>x.id!==o.id); save(); render();
+        }
+      });
+
+      tbody.appendChild(tr);
+    });
+
+    $('#pageInfo').textContent=`${currentCurrency} — Página ${page} de ${Math.max(1,Math.ceil(total/PAGE_SIZE))} — ${total} ops`;
+    $('#prevPage').disabled = page<=1;
+    $('#nextPage').disabled = page>=Math.ceil(total/PAGE_SIZE);
+  }
+
+  // === Modales ===
+  function openQuickModal(tipo){
+    const bg=document.createElement('div'); bg.className='modal-bg';
+    const modal=document.createElement('div'); modal.className='modal';
+    modal.innerHTML=`
+      <button class="close" aria-label="Cerrar">✖</button>
+      <h3>${tipo}</h3>
+      <label>Monto
+        <input id="monto" type="number" inputmode="decimal" placeholder="0" />
+      </label>
+      <label>Descripción (obligatoria)
+        <input id="desc" type="text" placeholder="Describe la operación" />
+      </label>
+      <button class="ok">Registrar</button>
+    `;
+    const close=()=>document.body.removeChild(bg);
+    modal.querySelector('.close').onclick=close;
+    bg.addEventListener('click',e=>{ if(e.target===bg) close(); });
+    modal.querySelector('.ok').onclick=()=>{
+      const monto=parseFloat(modal.querySelector('#monto').value)||0;
+      const desc=modal.querySelector('#desc').value.trim();
+      if(monto<=0){alert('Monto inválido');return;}
+      if(!desc){alert('La descripción es obligatoria');return;}
+      const fechaISO=nowISO();
+      ops.push({id:Date.now()+Math.random(),fechaISO,usuario:user,moneda:currentCurrency,tipo, monto, desc, verified:false});
+      save(); toast();
+      page = getTotalPages();
+      render(); close();
+    };
+    bg.appendChild(modal); document.body.appendChild(bg);
+  }
+
+  function openEditModal(id){
+    const op=ops.find(x=>x.id===id); if(!op) return;
+    const bg=document.createElement('div'); bg.className='modal-bg';
+    const modal=document.createElement('div'); modal.className='modal';
+    modal.innerHTML=`
+      <button class="close" aria-label="Cerrar">✖</button>
+      <h3>Editar operación</h3>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button class="tEntrada btn" style="background:${op.tipo==='Entrada'?'#2563eb':'#e2e8f0'};color:${op.tipo==='Entrada'?'#fff':'#0f172a'}">Entrada</button>
+        <button class="tSalida btn" style="background:${op.tipo==='Salida'?'#2563eb':'#e2e8f0'};color:${op.tipo==='Salida'?'#fff':'#0f172a'}">Salida</button>
+      </div>
+      <label>Monto
+        <input id="monto" type="number" inputmode="decimal" value="${op.monto}" />
+      </label>
+      <label>Descripción (obligatoria)
+        <input id="desc" type="text" value="${op.desc||''}" />
+      </label>
+      <button class="ok">Guardar cambios</button>
+    `;
+    let tipo=op.tipo;
+    const close=()=>document.body.removeChild(bg);
+    modal.querySelector('.close').onclick=close;
+    bg.addEventListener('click',e=>{ if(e.target===bg) close(); });
+    modal.querySelector('.tEntrada').onclick=()=>{ tipo='Entrada'; modal.querySelector('.tEntrada').style.background='#2563eb'; modal.querySelector('.tEntrada').style.color='#fff'; modal.querySelector('.tSalida').style.background='#e2e8f0'; modal.querySelector('.tSalida').style.color='#0f172a'; };
+    modal.querySelector('.tSalida').onclick=()=>{ tipo='Salida'; modal.querySelector('.tSalida').style.background='#2563eb'; modal.querySelector('.tSalida').style.color='#fff'; modal.querySelector('.tEntrada').style.background='#e2e8f0'; modal.querySelector('.tEntrada').style.color='#0f172a'; };
+
+    modal.querySelector('.ok').onclick=()=>{
+      const monto=parseFloat(modal.querySelector('#monto').value)||0;
+      const desc=modal.querySelector('#desc').value.trim();
+      if(monto<=0){alert('Monto inválido');return;}
+      if(!desc){alert('La descripción es obligatoria');return;}
+      op.monto=monto; op.desc=desc; op.tipo=tipo;
+      save(); toast('Cambios guardados');
+      render(); close();
+    };
+    bg.appendChild(modal); document.body.appendChild(bg);
+  }
+
+  // === Login y eventos ===
+  function attachLogin(){
+    const btns = document.querySelectorAll('#login button');
+    btns.forEach(btn=>{
+      btn.onclick = ()=>{
+        user=btn.dataset.user; $('#activeUser').textContent=user;
+        $('#user-info').style.display='flex';
+        $('#login').classList.add('hidden');
+        $('#content').classList.remove('hidden');
+        attachEvents();
+        page = getTotalPages();
+        render();
+      };
+    });
+  }
+
+  function attachEvents(){
+    const chipCUP=$('#chipCUP');
+    const chipUSD=$('#chipUSD');
+    if(chipCUP) chipCUP.onclick=()=>{ currentCurrency='CUP'; chipCUP.classList.add('active'); chipUSD && chipUSD.classList.remove('active'); page=getTotalPages(); render(); };
+    if(chipUSD) chipUSD.onclick=()=>{ currentCurrency='USD'; chipUSD.classList.add('active'); chipCUP && chipCUP.classList.remove('active'); page=getTotalPages(); render(); };
+
+    const btnE=$('#btnEntrada');
+    const btnS=$('#btnSalida');
+    if(btnE) btnE.onclick=()=>openQuickModal('Entrada');
+    if(btnS) btnS.onclick=()=>openQuickModal('Salida');
+
+    const sel=$('#filterSelect');
+    if(sel) sel.onchange=(e)=>{ currentFilter=e.target.value; page=getTotalPages(); render(); };
+
+    const prev=$('#prevPage');
+    const next=$('#nextPage');
+    if(prev) prev.onclick=()=>{ if(page>1){page--; render();} };
+    if(next) next.onclick=()=>{ const last=getTotalPages(); if(page<last){ page++; render(); } };
+
+    const out=$('#logout');
+    if(out) out.onclick=()=>{ if(confirm('¿Cerrar sesión?')) location.reload(); };
+  }
+
+  if(document.readyState==='loading'){
+    document.addEventListener('DOMContentLoaded',()=>{ attachLogin(); });
+  }else{ attachLogin(); }
+})();
+</script>
+</body>
+</html>
