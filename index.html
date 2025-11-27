@@ -1291,46 +1291,67 @@
     }
   }
 
-  document.getElementById('loading').style.display='flex';
-  let authEventFired = false;
-  supabase.auth.onAuthStateChange(async (_,session)=>{
-    authEventFired = true;
-    const loadingEl = document.getElementById('loading');
-    const logged = !!session;
-    if(logged){
-      loadingEl.style.display='flex';
-      window.currentUserEmail = session.user.email;
-      const short = shortNameByEmail(window.currentUserEmail);
-      $('#user-info').style.display='flex';
-      $('#activeUserShort').textContent = short;
-      $('#login').classList.add('hidden');
-      $('#content').classList.remove('hidden');
-      await loadSecurity(session.user);
-      startRealtime();
-      await fetchAll();
-      showView('registro');
-      loadingEl.style.display='none';
-      await maybeAskForPin(session.user);
-    }else{
-      window.currentUserEmail = null;
-      $('#user-info').style.display='none';
-      $('#content').classList.add('hidden');
-      $('#login').classList.remove('hidden');
-      loadingEl.style.display='none';
-      securityState = {loaded:false,pin_enabled:false,has_pin:false,pin:null,user_id:null,email:null};
+document.getElementById('loading').style.display = 'flex';
+
+async function handleSession(session){
+  const loadingEl = document.getElementById('loading');
+
+  if (session) {
+    // Usuario logueado
+    window.currentUserEmail = session.user.email;
+    const short = shortNameByEmail(window.currentUserEmail);
+
+    $('#user-info').style.display = 'flex';
+    $('#activeUserShort').textContent = short;
+    $('#login').classList.add('hidden');
+    $('#content').classList.remove('hidden');
+
+    await loadSecurity(session.user);
+    startRealtime();
+    await fetchAll();
+    showView('registro');
+    await maybeAskForPin(session.user);
+  } else {
+    // Sin sesión → mostrar login
+    window.currentUserEmail = null;
+    $('#user-info').style.display = 'none';
+    $('#content').classList.add('hidden');
+    $('#login').classList.remove('hidden');
+
+    securityState = {
+      loaded:false,
+      pin_enabled:false,
+      has_pin:false,
+      pin:null,
+      user_id:null,
+      email:null
+    };
+  }
+
+  loadingEl.style.display = 'none';
+}
+
+// 1) Al cargar la página, preguntar a Supabase si ya hay sesión
+(async function initAuth(){
+  try {
+    const { data: { session }, error } = await supabase.auth.getSession();
+    if (error) {
+      console.error('getSession error', error);
     }
-  });
+    await handleSession(session || null);
+  } catch (e) {
+    console.error('initAuth error', e);
+    document.getElementById('loading').style.display = 'none';
+    document.getElementById('login').classList.remove('hidden');
+  }
+})();
 
-  // Fallback por si algo raro pasa
-  window.addEventListener('load', () => {
-    setTimeout(() => {
-      if (!authEventFired) {
-        document.getElementById('loading').style.display = 'none';
-        document.getElementById('login').classList.remove('hidden');
-      }
-    }, 3000);
-  });
-
+// 2) Escuchar cambios posteriores (login / logout)
+supabase.auth.onAuthStateChange(async (event, session) => {
+  if (event === 'SIGNED_IN' || event === 'SIGNED_OUT') {
+    await handleSession(session || null);
+  }
+});
   function attach(){
     const menuBtn=$('#menuBtn'),menuDrop=$('#menuDrop');
     if(menuBtn){
@@ -1527,3 +1548,4 @@
 </script>
 </body>
 </html>
+
