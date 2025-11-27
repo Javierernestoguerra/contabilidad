@@ -1,0 +1,1551 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>Control de Fondos CUP/USD – Supabase</title>
+
+<!-- PWA essentials -->
+<meta name="theme-color" content="#2563eb" />
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icon-192.png">
+<link rel="icon" type="image/png" href="./icon-192.png">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+
+<style>
+  :root{
+    --bg:#f6f7fb; --text:#0f172a; --card:#ffffff; --border:#e2e8f0;
+    --muted:#475569; --muted2:#64748b; --thead:#f1f5f9; --chipActive:#eff6ff;
+    --primary:#2563eb; --danger:#dc2626; --success:#16a34a; --overlay:rgba(0,0,0,.4);
+  }
+  .dark{
+    --bg:#0b1220; --text:#e5e7eb; --card:#0f172a; --border:#1f2937;
+    --muted:#93a3b8; --muted2:#9aa3bf; --thead:#111827; --chipActive:#0f1e3a;
+    --primary:#3b82f6; --danger:#ef4444; --success:#22c55e; --overlay:rgba(0,0,0,.6);
+  }
+
+  *{box-sizing:border-box;margin:0;padding:0;font-family:Segoe UI,Arial,sans-serif}
+  body{background:var(--bg);color:var(--text);display:flex;flex-direction:column;min-height:100vh}
+
+  header{
+    position:relative;background:var(--card);border-bottom:1px solid var(--border);
+    padding:8px 12px;display:flex;align-items:center;gap:10px;justify-content:space-between
+  }
+  .header-left{display:flex;align-items:center;gap:8px}
+  .menu-btn,.theme-btn,.install-btn{
+    background:var(--card);border:1px solid var(--border);border-radius:10px;
+    padding:6px 10px;cursor:pointer;color:var(--text)
+  }
+  .menu-dropdown{
+    position:absolute;top:42px;left:12px;background:var(--card);border:1px solid var(--border);
+    border-radius:10px;box-shadow:0 8px 20px rgba(0,0,0,.12);overflow:hidden;display:none;min-width:200px;z-index:1000
+  }
+  .menu-dropdown button{
+    display:block;width:100%;text-align:left;padding:10px 12px;border:none;
+    background:var(--card);cursor:pointer;font-size:14px;color:var(--text)
+  }
+  .menu-dropdown button:hover{background:var(--thead)}
+
+  #user-info{font-size:14px;display:flex;align-items:center;gap:10px;white-space:nowrap}
+  #activeUserShort{font-weight:700}
+  #logout{background:var(--danger);color:#fff;border:none;padding:6px 10px;border-radius:6px;cursor:pointer}
+
+  main{flex:1;display:flex;flex-direction:column}
+  #content{flex:1;display:flex;flex-direction:column;gap:8px;padding:8px}
+
+  .topbar,.stats-topbar,.calc-topbar,.count-topbar{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+  .chip{padding:4px 8px;border:1px solid var(--border);border-radius:999px;background:var(--card);font-size:12px;cursor:pointer;color:var(--text)}
+  .chip strong{font-weight:800}
+  .chip.active{border-color:var(--primary);color:var(--primary);background:var(--chipActive)}
+  .filter{padding:6px 8px;border:1px solid var(--border);border-radius:8px;font-size:12px;background:var(--card);color:var(--text)}
+  .btn{padding:8px 12px;border:none;border-radius:8px;font-weight:600;cursor:pointer}
+  .btn.green{background:var(--success);color:#fff}
+  .btn.red{background:var(--danger);color:#fff}
+  .btn.blue{background:var(--primary);color:#fff}
+  .btn.ghost{background:var(--card);border:1px solid var(--border);color:var(--text)}
+
+  .table-wrap{overflow:auto;border:1px solid var(--border);border-radius:10px;background:var(--card)}
+  table{width:100%;border-collapse:collapse}
+  th,td{border-bottom:1px solid var(--border);padding:6px 6px;font-size:13px;vertical-align:middle;color:var(--text)}
+  th{background:var(--thead);text-align:left;position:sticky;top:0;z-index:1}
+  td.num{text-align:right;font-variant-numeric:tabular-nums}
+  tr.verified{background:#dcfce7 !important}
+  .dark tr.verified{background:#12351d !important}
+  .nowrap{white-space:nowrap}
+
+  .pagination{display:flex;gap:8px;align-items:center;justify-content:flex-end;margin-top:8px}
+  .pagination button{padding:8px 12px;border:1px solid var(--border);border-radius:8px;background:var(--card);cursor:pointer;color:var(--text)}
+
+  .modal-bg{position:fixed;inset:0;background:var(--overlay);display:flex;align-items:center;justify-content:center;z-index:1000}
+  .modal{background:var(--card);color:var(--text);padding:16px;border-radius:12px;width:92%;max-width:420px;position:relative;display:flex;flex-direction:column;gap:10px;border:1px solid var(--border)}
+  .modal .close{position:absolute;right:10px;top:10px;background:transparent;border:none;font-size:18px;cursor:pointer;color:var(--text)}
+  .modal label{display:flex;flex-direction:column;gap:6px}
+  .modal input{padding:12px;border:1px solid var(--border);border-radius:10px;background:var(--card);color:var(--text);font-size:16px}
+  .modal .ok{background:var(--primary);color:#fff;border:none;padding:10px;border-radius:8px;font-weight:700;cursor:pointer}
+  .muted{color:var(--muted2);font-size:12px}
+
+  .login-wrap{
+    flex:1;display:flex;align-items:center;justify-content:center;
+    background: linear-gradient(135deg,#2e62ff 0%, #6b3dfd 100%); padding:24px;
+  }
+  .dark .login-wrap{background:linear-gradient(135deg,#182544 0%, #2c1f5a 100%);}
+  .card{
+    width:100%;max-width:380px;background:var(--card);border:1px solid var(--border);border-radius:16px;
+    box-shadow: 0 10px 30px rgba(0,0,0,.15);
+    padding:20px 18px; display:flex; flex-direction:column; gap:12px; color:var(--text)
+  }
+  .card h2{font-size:22px;text-align:center;margin-bottom:8px}
+  .field{display:flex;flex-direction:column;gap:6px}
+  .field label{font-size:12px;color:var(--muted)}
+  .field input{padding:12px;border:1px solid var(--border);border-radius:10px;font-size:14px;background:var(--card);color:var(--text)}
+  .login-btn{margin-top:4px;padding:12px;border:none;border-radius:10px;background:var(--primary);color:#fff;font-weight:700;cursor:pointer}
+  .login-error{color:var(--danger);font-size:12px;min-height:16px;text-align:center}
+  .hint{font-size:12px;color:var(--muted);text-align:center}
+
+  #loading{
+    position:fixed;inset:0;display:flex;align-items:center;justify-content:center;
+    background:var(--bg);color:var(--text);font-size:16px;z-index:9999;
+  }
+
+  .cards{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+  @media (min-width:640px){ .cards{grid-template-columns:repeat(4,1fr);} }
+  .card-kpi{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:12px}
+  .card-kpi h4{font-size:12px;color:var(--muted);margin-bottom:6px}
+  .card-kpi .val{font-size:18px;font-weight:800}
+  .months{margin-top:8px;background:var(--card);border:1px solid var(--border);border-radius:12px;overflow:auto}
+  .months table{width:100%;border-collapse:collapse;min-width:560px}
+  .months th,.months td{border-bottom:1px solid var(--border);padding:8px;font-size:13px}
+  .months th{background:var(--thead);text-align:left}
+  .arrow-up{color:var(--success);font-weight:800}
+  .arrow-down{color:var(--danger);font-weight:800}
+
+  .count-head{
+    display:flex;align-items:center;gap:10px;flex-wrap:wrap
+  }
+  .count-total{
+    margin-left:auto;background:var(--card);border:1px solid var(--border);border-radius:12px;
+    padding:10px 12px;font-weight:800;font-size:16px
+  }
+  .counter{
+    background:var(--card);border:1px solid var(--border);border-radius:12px;padding:8px;margin-top:8px
+  }
+  .counter-row{
+    display:grid;grid-template-columns:80px 1fr 1fr;gap:8px;align-items:center;padding:6px 4px;border-bottom:1px dashed var(--border)
+  }
+  .counter-row:last-child{border-bottom:none}
+  .counter-row .denom{font-weight:700}
+  .counter-row input{
+    width:100%;padding:10px;border:1px solid var(--border);border-radius:8px;background:var(--card);color:var(--text);
+    text-align:right;font-size:16px
+  }
+  .counter-row .subtotal{ text-align:right; font-weight:700 }
+  @media (max-width:480px){
+    .counter-row{grid-template-columns:70px 1fr 1fr}
+  }
+
+  #toast{position:fixed;bottom:16px;right:16px;background:var(--success);color:white;padding:10px 16px;border-radius:8px;opacity:0;transition:opacity .25s;z-index:1200}
+  #toast.show{opacity:1}
+
+  .hidden{display:none !important}
+</style>
+</head>
+<body>
+
+<div id="loading">Cargando...</div>
+
+<header>
+  <div class="header-left">
+    <button id="menuBtn" class="menu-btn" title="Menú">☰</button>
+    <button id="themeToggle" class="theme-btn" title="Cambiar tema">☀️</button>
+    <button id="installBtn" class="install-btn hidden" title="Instalar app">⬇️ Instalar</button>
+    <div id="menuDrop" class="menu-dropdown">
+      <button id="goRegistro">Registro</button>
+      <button id="goStats">Estadísticas</button>
+      <button id="goCalc">Calculadora</button>
+      <button id="goCount">Contador</button>
+      <button id="goSecurity">Seguridad</button>
+    </div>
+  </div>
+
+  <div id="user-info" style="display:none">
+    <span id="activeUserShort"></span>
+    <button id="logout">Cerrar sesión</button>
+  </div>
+</header>
+
+<main>
+  <div id="content" class="hidden">
+    <!-- REGISTRO -->
+    <div id="view-registro">
+      <div class="topbar">
+        <button id="chipCUP" class="chip active" title="Ver CUP">CUP: <strong id="totalCUP">0</strong></button>
+        <button id="chipUSD" class="chip" title="Ver USD">USD: <strong id="totalUSD">0</strong></button>
+
+        <select id="filterSelect" class="filter" title="Filtrar">
+          <option value="ALL">Todos</option>
+          <option value="TODAY">Hoy</option>
+          <option value="YESTERDAY">Ayer</option>
+          <option value="TODAY_YESTERDAY">Ayer-Hoy</option>
+          <option value="LAST_CHECK">Último CheckBox</option>
+        </select>
+
+        <input id="searchDesc" class="filter" placeholder="Buscar descripción o 'por'…" style="min-width:160px" />
+
+        <button id="btnCSV" class="btn">Exportar CSV</button>
+
+        <div style="display:flex;gap:6px;margin-left:auto">
+          <button id="btnEntrada" class="btn green">Entrada</button>
+          <button id="btnSalida" class="btn red">Salida</button>
+        </div>
+      </div>
+
+      <div class="table-wrap">
+        <table id="tabla">
+          <thead>
+            <tr>
+              <th class="nowrap">Fecha</th>
+              <th class="num">Entradas</th>
+              <th class="num">Salidas</th>
+              <th style="min-width:120px">Descripción</th>
+              <th class="num">Saldo</th>
+              <th class="num" style="width:1%">✔</th>
+              <th class="num" style="width:1%">✏️</th>
+              <th class="num" style="width:1%">🗑</th>
+              <th class="nowrap" style="width:1%">Por</th>
+              <th class="nowrap" style="width:1%">Hora/Check</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+
+      <div class="pagination">
+        <span id="pageInfo" style="margin-right:auto;color:var(--muted)"></span>
+        <button id="prevPage">◀️ Anterior</button>
+        <button id="nextPage">Siguiente ▶️</button>
+      </div>
+    </div>
+
+    <!-- ESTADÍSTICAS -->
+    <div id="view-stats" class="hidden">
+      <div class="stats-topbar">
+        <button id="chipCUP_stats" class="chip">CUP</button>
+        <button id="chipUSD_stats" class="chip">USD</button>
+      </div>
+      <div class="cards">
+        <div class="card-kpi"><h4>Salidas totales (últimos 30 días)</h4><div id="kpi-salidas-30" class="val">0</div></div>
+        <div class="card-kpi"><h4>Promedio diario (últimos 30 días)</h4><div id="kpi-promedio-30" class="val">0</div></div>
+        <div class="card-kpi"><h4>Checkbox marcados (30 días)</h4><div id="kpi-checks-30" class="val">0</div></div>
+        <div class="card-kpi"><h4>Moneda</h4><div id="kpi-moneda" class="val">CUP</div></div>
+      </div>
+
+      <div class="months" style="margin-top:8px;">
+        <table>
+          <thead>
+            <tr>
+              <th>Mes</th>
+              <th class="num">Salidas</th>
+              <th class="num">Promedio diario</th>
+              <th class="num">Variación</th>
+              <th class="num">Verificados</th>
+            </tr>
+          </thead>
+          <tbody id="months-body"></tbody>
+        </table>
+      </div>
+
+      <div class="months" style="margin-top:8px;">
+        <table>
+          <thead>
+            <tr>
+              <th>Semana</th>
+              <th class="num">Salidas</th>
+              <th class="num">Promedio diario</th>
+              <th class="num">Variación</th>
+              <th class="num">Verificados</th>
+            </tr>
+          </thead>
+          <tbody id="weeks-body"></tbody>
+        </table>
+      </div>
+
+      <div class="months" style="margin-top:8px;">
+        <table>
+          <thead>
+            <tr>
+              <th>Día</th>
+              <th class="num">Salidas</th>
+              <th class="num">Promedio diario</th>
+              <th class="num">Variación</th>
+              <th class="num">Verificados</th>
+            </tr>
+          </thead>
+          <tbody id="days-body"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- CALCULADORA -->
+    <div id="view-calc" class="hidden">
+      <div class="calc-topbar">
+        <button id="chipCUP_calc" class="chip">CUP</button>
+        <button id="chipUSD_calc" class="chip">USD</button>
+        <div style="margin-left:auto"></div>
+        <button id="btnNewCalc" class="btn blue">Nuevo cálculo</button>
+      </div>
+      <p class="muted">Al entrar aquí se abre la calculadora automáticamente.</p>
+    </div>
+
+    <!-- CONTADOR -->
+    <div id="view-count" class="hidden">
+      <div class="count-topbar count-head">
+        <button id="chipCUP_count" class="chip">CUP</button>
+        <button id="chipUSD_count" class="chip">USD</button>
+        <button id="btnClearCount" class="btn ghost">Borrar todo</button>
+        <div id="countTotal" class="count-total">Total: 0</div>
+      </div>
+      <div id="counterBody" class="counter"></div>
+      <p class="muted" style="margin-top:6px">
+        * El total contado se usará automáticamente como “dinero físico” en la Calculadora.
+      </p>
+    </div>
+
+    <!-- SEGURIDAD -->
+    <div id="view-security" class="hidden">
+      <h3>Seguridad</h3>
+      <p class="muted" style="margin-top:4px">
+        Configura un PIN de 4 dígitos para desbloquear tu sesión cada 6 horas sin tener que escribir usuario y contraseña.
+      </p>
+
+      <div style="margin-top:10px;display:flex;align-items:center;gap:10px;">
+        <span id="pinStatusLabel" class="muted">PIN desactivado</span>
+        <label style="display:flex;align-items:center;gap:6px;font-size:13px;">
+          <input id="pinEnabledSwitch" type="checkbox" />
+          <span>Activar PIN</span>
+        </label>
+      </div>
+
+      <div style="margin-top:16px;display:flex;flex-direction:column;gap:10px;max-width:360px;">
+        <div class="field">
+          <label>Nuevo PIN (4 dígitos)</label>
+          <input id="sec-pin" type="password" inputmode="numeric" maxlength="4" placeholder="Ej: 1234" />
+        </div>
+        <div class="field">
+          <label>Repetir PIN</label>
+          <input id="sec-pin2" type="password" inputmode="numeric" maxlength="4" placeholder="Repite el PIN" />
+        </div>
+        <div class="field">
+          <label>Correo</label>
+          <input id="sec-email" type="email" readonly />
+        </div>
+        <div class="field">
+          <label>Contraseña actual (para confirmar cambios)</label>
+          <input id="sec-pass" type="password" placeholder="Contraseña" />
+        </div>
+        <button id="btnSavePin" class="btn blue">Guardar configuración de PIN</button>
+        <p class="muted" id="pinMessage"></p>
+      </div>
+    </div>
+  </div>
+
+  <div id="login" class="login-wrap">
+    <div class="card">
+      <h2>Iniciar sesión</h2>
+      <div id="loginError" class="login-error"></div>
+      <div class="field"><label for="email">Correo</label><input id="email" type="email" placeholder="tu@correo.com" autocomplete="username" /></div>
+      <div class="field"><label for="password">Contraseña</label><input id="password" type="password" placeholder="••••••••" autocomplete="current-password" /></div>
+      <button id="loginBtn" class="login-btn">Iniciar sesión</button>
+      <div class="hint">Usuarios: Javi, Amaury y Yani</div>
+    </div>
+  </div>
+</main>
+
+<div id="toast">Operación registrada correctamente</div>
+
+<template id="rowTpl">
+  <tr>
+    <td data-k="fecha" class="nowrap"></td>
+    <td data-k="entradas" class="num"></td>
+    <td data-k="salidas" class="num"></td>
+    <td data-k="desc"></td>
+    <td data-k="saldo" class="num"></td>
+    <td class="num"><input type="checkbox" class="check" title="Verificado" /></td>
+    <td class="num"><button class="edit" title="Editar" style="background:transparent;border:none;cursor:pointer;font-size:16px">✏️</button></td>
+    <td class="num">
+      <button class="del" title="Eliminar" style="background:transparent;border:none;cursor:pointer;display:inline-flex;align-items:center" aria-label="Eliminar">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--danger)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="3 6 5 6 21 6"/>
+          <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/>
+          <path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2"/>
+        </svg>
+      </button>
+    </td>
+    <td data-k="by" class="nowrap"></td>
+    <td data-k="checkTime" class="nowrap"></td>
+  </tr>
+</template>
+
+<script type="module">
+  import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+
+  /* ===== Supabase ===== */
+  const SUPABASE_URL  = "https://mcmzclmbpohddblpulmn.supabase.co";
+  const SUPABASE_ANON = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1jbXpjbG1icG9oZGRibHB1bG1uIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTk5ODM5OTMsImV4cCI6MjA3NTU1OTk5M30.bdxIDJXk-ovzaGhz3GaQV740bHA0r9sLC4Io8QEOAR0";
+  const supabase = createClient(SUPABASE_URL, SUPABASE_ANON);
+
+  /* ===== Estado global ===== */
+  const $ = s => document.querySelector(s);
+  window.opsAll = [];
+  window.currentCurrency = 'CUP';
+  window.currentFilter = 'ALL';
+  window.currentSearch = '';
+  window.PAGE_SIZE = 15;
+  window.page = 1;
+  window.activeView = 'registro';
+  window.currentUserEmail = null;
+
+  let securityState = {
+    loaded:false,
+    pin_enabled:false,
+    has_pin:false,
+    pin:null,
+    user_id:null,
+    email:null
+  };
+
+  /* ===== PWA: SW solo en https/localhost ===== */
+  (function(){
+    const canSW = 'serviceWorker' in navigator;
+    const isLocalhost = location.hostname === 'localhost' || location.hostname === '127.0.0.1';
+    const isHttps = location.protocol === 'https:';
+    if (canSW && (isHttps || isLocalhost)) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('service-worker.js').catch(err => {
+          console.warn('Error registrando SW:', err);
+        });
+      });
+    } else {
+      console.warn('SW desactivado (no es https/localhost).');
+    }
+  })();
+
+  let deferredPrompt = null;
+  const installBtn = $('#installBtn');
+  window.addEventListener('beforeinstallprompt', (e) => {
+    e.preventDefault(); deferredPrompt = e; installBtn.classList.remove('hidden');
+  });
+  installBtn?.addEventListener('click', async () => {
+    if (!deferredPrompt) return;
+    deferredPrompt.prompt();
+    const { outcome } = await deferredPrompt.userChoice;
+    if (outcome === 'accepted') installBtn.classList.add('hidden');
+    deferredPrompt = null;
+  });
+  window.addEventListener('appinstalled', () => installBtn.classList.add('hidden'));
+
+  /* ===== Tema ===== */
+  function applyTheme(initial){
+    const prefers = initial ?? localStorage.getItem('theme') ?? 'light';
+    document.body.classList.toggle('dark', prefers==='dark');
+    $('#themeToggle').textContent = prefers==='dark' ? '🌙' : '☀️';
+    const metaTheme = document.querySelector('meta[name="theme-color"]');
+    if (metaTheme) metaTheme.setAttribute('content', prefers==='dark' ? '#0b1220' : '#2563eb');
+  }
+  applyTheme();
+  $('#themeToggle').onclick = () => {
+    const dark = !document.body.classList.contains('dark');
+    document.body.classList.toggle('dark', dark);
+    localStorage.setItem('theme', dark ? 'dark' : 'light');
+    $('#themeToggle').textContent = dark ? '🌙' : '☀️';
+    const metaTheme = document.querySelector('meta[name="theme-color"]');
+    if (metaTheme) metaTheme.setAttribute('content', dark ? '#0b1220' : '#2563eb');
+  };
+
+  /* ===== Helpers ===== */
+  function shortNameByEmail(email){
+    if(!email) return '';
+    if(email.startsWith('javierernestoguerra')) return 'Javi';
+    if(email.startsWith('amaurymelo')) return 'Amaury';
+    if(email.startsWith('yanilsamendez')) return 'Yani';
+    const n = email.split('@')[0];
+    return n.charAt(0).toUpperCase()+n.slice(1);
+  }
+  function fmtNum(n){return(Number(n)||0).toLocaleString('es-ES',{maximumFractionDigits:0})}
+  function fmtDateShortISO(i){const d=new Date(i);return`${d.getDate()}-${d.getMonth()+1}-${String(d.getFullYear()).slice(-2)}`}
+  function toYMD(d){const x=new Date(d);return`${x.getFullYear()}-${String(x.getMonth()+1).padStart(2,'0')}-${String(x.getDate()).padStart(2,'0')}`}
+  function ymdOffset(days){const d=new Date();d.setHours(0,0,0,0);d.setDate(d.getDate()+days);return toYMD(d)}
+  function toast(m='Operación registrada'){const t=$('#toast');t.textContent=m;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),1700)}
+  function formatTime12(value){
+    if (!value) return '';
+    const d = new Date(value);
+    if (isNaN(d)) return '';
+    let h = d.getHours();
+    const m = d.getMinutes().toString().padStart(2,'0');
+    const ampm = h>=12 ? 'PM' : 'AM';
+    h = h % 12; if (h === 0) h = 12;
+    return `${h}:${m} ${ampm}`;
+  }
+
+  function formatIntLive(raw){
+    const digits = String(raw||'').replace(/\D/g,'');
+    const formatted = digits.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+    const number = parseInt(digits || '0', 10) || 0;
+    return { formatted, number, digits };
+  }
+  function countDigitsUpTo(str, pos){
+    let c=0; for(let i=0;i<Math.min(pos,str.length);i++){ if(/\d/.test(str[i])) c++; } return c;
+  }
+  function caretFromDigitCount(formatted, digitCount){
+    if (digitCount<=0) return 0;
+    let c=0;
+    for(let i=0;i<formatted.length;i++){
+      if(/\d/.test(formatted[i])){ c++; if(c===digitCount) return i+1; }
+    }
+    return formatted.length;
+  }
+
+  /* ===== Seguridad (tabla user_security + PIN) ===== */
+  async function loadSecurity(user){
+    securityState = {
+      loaded:false,
+      pin_enabled:false,
+      has_pin:false,
+      pin:null,
+      user_id:user.id,
+      email:user.email
+    };
+    try{
+      const { data, error } = await supabase
+        .from('user_security')
+        .select('*')
+        .eq('user_id', user.id)
+        .maybeSingle();
+      if(error) console.error('user_security load error', error);
+      if(data){
+        securityState.pin_enabled = !!data.pin_enabled;
+        securityState.pin = data.pin || null;
+        securityState.has_pin = !!data.pin;
+      }
+      securityState.loaded = true;
+    }catch(e){ console.error(e); }
+    renderSecurityView();
+  }
+
+  function renderSecurityView(){
+    const label = document.getElementById('pinStatusLabel');
+    const sw = document.getElementById('pinEnabledSwitch');
+    const emailInput = document.getElementById('sec-email');
+    const pin1 = document.getElementById('sec-pin');
+    const pin2 = document.getElementById('sec-pin2');
+    const msg = document.getElementById('pinMessage');
+    if(!label || !sw) return;
+    label.textContent = securityState.pin_enabled && securityState.has_pin
+      ? 'PIN activado' : 'PIN desactivado';
+    sw.checked = securityState.pin_enabled;
+    if(emailInput) emailInput.value = securityState.email || '';
+    if(pin1) pin1.value = '';
+    if(pin2) pin2.value = '';
+    if(msg) msg.textContent = '';
+  }
+
+  async function savePinConfig(){
+    if(!securityState.user_id) return;
+    const pin1El = document.getElementById('sec-pin');
+    const pin2El = document.getElementById('sec-pin2');
+    const passEl = document.getElementById('sec-pass');
+    const sw = document.getElementById('pinEnabledSwitch');
+    const msg = document.getElementById('pinMessage');
+    const pin1 = pin1El.value.trim();
+    const pin2 = pin2El.value.trim();
+    const pass = passEl.value;
+    msg.textContent = '';
+
+    const wantEnabled = sw.checked;
+    let newPin = securityState.pin;
+
+    if(pin1 || pin2){
+      if(pin1.length !== 4 || !/^\d{4}$/.test(pin1)){
+        msg.textContent = 'El PIN debe tener exactamente 4 dígitos.';
+        sw.checked = securityState.pin_enabled;
+        return;
+      }
+      if(pin1 !== pin2){
+        msg.textContent = 'Los PIN no coinciden.';
+        sw.checked = securityState.pin_enabled;
+        return;
+      }
+      newPin = pin1;
+    } else if(wantEnabled && !securityState.has_pin){
+      msg.textContent = 'Primero define un PIN (ambos campos).';
+      sw.checked = false;
+      return;
+    }
+
+    if(!pass){
+      msg.textContent = 'Escribe tu contraseña para confirmar.';
+      sw.checked = securityState.pin_enabled;
+      return;
+    }
+
+    try{
+      const { error } = await supabase.auth.signInWithPassword({
+        email: securityState.email,
+        password: pass
+      });
+      if(error){
+        msg.textContent = 'Contraseña incorrecta.';
+        sw.checked = securityState.pin_enabled;
+        return;
+      }
+    } catch(e){ console.error(e); }
+
+    try{
+      const { error } = await supabase
+        .from('user_security')
+        .upsert({
+          user_id: securityState.user_id,
+          email: securityState.email,
+          pin: newPin,
+          pin_enabled: wantEnabled
+        }, { onConflict: 'user_id' });
+
+      if(error){
+        console.error(error);
+        msg.textContent = 'Error guardando PIN.';
+        sw.checked = securityState.pin_enabled;
+        return;
+      }
+      securityState.pin = newPin;
+      securityState.has_pin = !!newPin;
+      securityState.pin_enabled = wantEnabled;
+      passEl.value = '';
+      msg.textContent = 'Configuración de PIN guardada.';
+      renderSecurityView();
+    } catch(e){
+      console.error(e);
+      msg.textContent = 'Error inesperado.';
+      sw.checked = securityState.pin_enabled;
+    }
+  }
+
+  function getPinLocalKey(userId){ return `pin_last_unlock_${userId}`; }
+  function shouldAskPin(user){
+    if(!securityState.pin_enabled || !securityState.has_pin) return false;
+    const key = getPinLocalKey(user.id);
+    const last = localStorage.getItem(key);
+    if(!last) return true;
+    const d = new Date(last); if(isNaN(d)) return true;
+    const diff = Date.now() - d.getTime();
+    return diff > 6*60*60*1000;
+  }
+  function registerPinUnlock(user){
+    const key = getPinLocalKey(user.id);
+    localStorage.setItem(key, new Date().toISOString());
+  }
+
+  function openPinPrompt(user){
+    return new Promise(resolve=>{
+      const bg=document.createElement('div');bg.className='modal-bg';
+      const m=document.createElement('div');m.className='modal';
+      const short = shortNameByEmail(user.email);
+      m.innerHTML = `
+        <button class="close">✖</button>
+        <h3>Desbloquear con PIN (${short})</h3>
+        <p class="muted">Por seguridad, introduce tu PIN de 4 dígitos.</p>
+        <label>PIN
+          <input id="pin-input" type="password" inputmode="numeric" maxlength="4" />
+        </label>
+        <div id="pin-error" class="muted" style="color:var(--danger)"></div>
+        <button class="ok">Desbloquear</button>
+        <button type="button" class="btn ghost" id="pin-logout" style="margin-top:4px;">Cerrar sesión</button>
+      `;
+      const close = () => { bg.remove(); resolve(false); };
+      m.querySelector('.close').onclick = close;
+      bg.onclick = e=>{ if(e.target===bg) close(); };
+      const input = m.querySelector('#pin-input');
+      const err = m.querySelector('#pin-error');
+      const okBtn = m.querySelector('.ok');
+      const logoutBtn = m.querySelector('#pin-logout');
+      logoutBtn.onclick = async ()=>{
+        await supabase.auth.signOut();
+        localStorage.removeItem('sb-access-token');
+        localStorage.removeItem('supabase.auth.token');
+        close();
+      };
+      okBtn.onclick = ()=>{
+        const val = input.value.trim();
+        if(val.length!==4 || !/^\d{4}$/.test(val)){
+          err.textContent = 'PIN inválido.'; return;
+        }
+        if(val !== securityState.pin){
+          err.textContent = 'PIN incorrecto.'; return;
+        }
+        registerPinUnlock(user);
+        bg.remove();
+        resolve(true);
+      };
+      bg.appendChild(m);document.body.appendChild(bg);
+      setTimeout(()=>input.focus(),30);
+    });
+  }
+
+  async function maybeAskForPin(user){
+    if(!securityState.pin_enabled || !securityState.has_pin) return;
+    if(!shouldAskPin(user)) return;
+    await openPinPrompt(user);
+  }
+
+  /* ===== Login ===== */
+  async function doLogin(email,password){
+    $('#loginError').textContent='';
+    const {error}=await supabase.auth.signInWithPassword({email,password});
+    if(error){$('#loginError').textContent=error.message;return false;}
+    return true;
+  }
+  $('#loginBtn').onclick=async()=>{
+    const email=$('#email').value.trim(),pass=$('#password').value;
+    if(!email||!pass){$('#loginError').textContent='Completa correo y contraseña.';return;}
+    await doLogin(email,pass);
+  };
+  $('#password').addEventListener('keydown',e=>{ if(e.key==='Enter')$('#loginBtn').click(); });
+
+  $('#logout').onclick=async()=>{
+    await supabase.auth.signOut();
+    localStorage.removeItem('sb-access-token');
+    localStorage.removeItem('supabase.auth.token');
+    $('#user-info').style.display='none';
+    $('#content').classList.add('hidden');
+    $('#login').classList.remove('hidden');
+    securityState = {loaded:false,pin_enabled:false,has_pin:false,pin:null,user_id:null,email:null};
+  };
+
+  /* ===== Data / realtime ===== */
+  async function fetchAll(){
+    const {data,error}=await supabase.from('operations').select('*').order('date',{ascending:true});
+    if(!error){
+      window.opsAll=data||[];
+      if(activeView==='registro'){ page=getTotalPages(); render(); }
+      else if(activeView==='stats'){ renderStats(); }
+      else if(activeView==='calc'){ updateCalcChips(); }
+      else if(activeView==='count'){ renderCounter(); }
+    }
+  }
+  let channel=null, pollTimer=null;
+  function startPolling() {
+    if (pollTimer) return;
+    pollTimer = setInterval(() => { if (!channel || channel.state !== 'SUBSCRIBED') fetchAll(); }, 4000);
+  }
+  function stopPolling(){ if (pollTimer){ clearInterval(pollTimer); pollTimer=null; } }
+  function startRealtime(){
+    if(channel) supabase.removeChannel(channel);
+    channel=supabase.channel('realtime:operations_all')
+      .on('postgres_changes',{event:'*',schema:'public',table:'operations'},
+        payload=>{ console.log('Evento realtime:',payload); fetchAll(); })
+      .subscribe(status=>{
+        console.log('Estado canal:',status);
+        if(status==='SUBSCRIBED') stopPolling(); else startPolling();
+      });
+  }
+
+  function calcTotals(){
+    const asc=[...opsAll].sort((a,b)=>new Date(a.date)-new Date(b.date));
+    let sC=0,sU=0,m=new Map();
+    asc.forEach(o=>{
+      const d=(o.type==='Entrada'?1:-1)*(+o.amount||0);
+      if(o.currency==='CUP'){sC+=d;m.set(o.id,{saldo:sC});}
+      if(o.currency==='USD'){sU+=d;m.set(o.id,{saldo:sU});}
+    });
+    $('#totalCUP').textContent=fmtNum(sC);
+    $('#totalUSD').textContent=fmtNum(sU);
+    return {map:m, cup:sC, usd:sU};
+  }
+  function applyFilter(list){
+    const f=currentFilter;
+    const t=ymdOffset(0),y=ymdOffset(-1);
+    let out=list;
+    if(f==='TODAY') out = out.filter(o=>toYMD(o.date)===t);
+    else if(f==='YESTERDAY') out = out.filter(o=>toYMD(o.date)===y);
+    else if(f==='TODAY_YESTERDAY') out = out.filter(o=>[t,y].includes(toYMD(o.date)));
+    else if(f==='LAST_CHECK'){
+      const asc=[...out].sort((a,b)=>new Date(a.date)-new Date(b.date));
+      const last=asc.map((o,i)=>({o,i})).reverse().find(x=>x.o.verified)?.i??-1;
+      out = last===-1?asc:asc.slice(last);
+    }
+    const q=(currentSearch||'').trim().toLowerCase();
+    if(q) out = out.filter(o=>{
+      const desc=(o.description||'').toLowerCase();
+      const by=(o.added_by||'').toLowerCase();
+      return desc.includes(q)||by.includes(q);
+    });
+    return out;
+  }
+  function filteredRows(){
+    const totals=calcTotals();
+    let base=[...opsAll].filter(o=>o.currency===currentCurrency).sort((a,b)=>new Date(a.date)-new Date(b.date));
+    base=applyFilter(base);
+    return base.map(o=>({...o,
+      saldo:(totals.map.get(o.id)||{}).saldo||0,
+      entradas:o.type==='Entrada'?o.amount:0,
+      salidas:o.type==='Salida'?o.amount:0}));
+  }
+  function getTotalPages(){
+    let l=[...opsAll].filter(o=>o.currency===currentCurrency).sort((a,b)=>new Date(a.date)-new Date(b.date));
+    l=applyFilter(l); return Math.max(1,Math.ceil(l.length/PAGE_SIZE));
+  }
+
+  async function addOperation(d){
+    const added_by = shortNameByEmail(currentUserEmail);
+    const payload = {...d, added_by};
+    const {error}=await supabase.from('operations').insert(payload);
+    if(error) alert('Insert: '+error.message);
+  }
+  async function editOperation(id,u){
+    const{error}=await supabase.from('operations').update(u).eq('id',id);
+    if(error) alert('Update: '+error.message);
+  }
+  async function deleteOperation(id){
+    const{error}=await supabase.from('operations').delete().eq('id',id);
+    if(error) alert('Delete: '+error.message);
+  }
+  async function toggleVerified(id,v){
+    const nowIso = new Date().toISOString();
+    const payload = v
+      ? { verified: true, verified_time: nowIso }
+      : { verified: false, verified_time: null };
+    const { error } = await supabase
+      .from('operations')
+      .update(payload)
+      .eq('id', id);
+    if (error) {
+      console.error('Check error:', error);
+      alert('Error marcando check:\n' + error.message);
+      return false;
+    }
+    return true;
+  }
+
+  function render(){
+    const tb=$('#tabla tbody');tb.innerHTML='';
+    const rows=filteredRows(); const total=rows.length;
+    const totP=Math.max(1,Math.ceil(total/PAGE_SIZE));
+    if(page>totP)page=totP;
+    const s=(page-1)*PAGE_SIZE,e=s+PAGE_SIZE,pag=rows.slice(s,e);
+    const tpl=$('#rowTpl');
+    pag.forEach(o=>{
+      const tr=tpl.content.cloneNode(true);
+      tr.querySelector('[data-k="fecha"]').textContent=fmtDateShortISO(o.date);
+      tr.querySelector('[data-k="entradas"]').textContent=o.entradas?fmtNum(o.entradas):'';
+      tr.querySelector('[data-k="salidas"]').textContent=o.salidas?fmtNum(o.salidas):'';
+      tr.querySelector('[data-k="desc"]').textContent=o.description||'';
+      tr.querySelector('[data-k="saldo"]').textContent=fmtNum(o.saldo||0);
+      tr.querySelector('[data-k="by"]').textContent=o.added_by || '-';
+      const timeCell = tr.querySelector('[data-k="checkTime"]');
+      timeCell.textContent = o.verified_time ? formatTime12(o.verified_time) : '';
+
+      const row=tr.querySelector('tr');
+      if(o.verified)row.classList.add('verified');
+      const chk=tr.querySelector('.check');
+      chk.checked=!!o.verified;
+      chk.onchange=async()=>{
+        const previous = !!o.verified;
+        const checked = chk.checked;
+        chk.disabled = true;
+        const ok = await toggleVerified(o.id, checked);
+        chk.disabled = false;
+        if (!ok) {
+          chk.checked = previous;
+          row.classList.toggle('verified', previous);
+          timeCell.textContent = o.verified_time ? formatTime12(o.verified_time) : '';
+          return;
+        }
+        row.classList.toggle('verified', checked);
+        timeCell.textContent = checked ? formatTime12(new Date().toISOString()) : '';
+        o.verified = checked;
+        o.verified_time = checked ? new Date().toISOString() : null;
+      };
+      tr.querySelector('.edit').onclick=()=>openEditModal(o);
+      tr.querySelector('.del').onclick=()=>{if(confirm('¿Eliminar?'))deleteOperation(o.id);}
+      tb.appendChild(tr);
+    });
+    $('#pageInfo').textContent=`${currentCurrency} — Página ${page} de ${totP} — ${total} ops`;
+    $('#prevPage').disabled=page<=1;
+    $('#nextPage').disabled=page>=totP;
+  }
+  window.render = render;
+
+  function paintStatsChips(){
+    const c1=$('#chipCUP_stats'),c2=$('#chipUSD_stats');
+    if(!c1||!c2) return;
+    if(currentCurrency==='CUP'){c1.classList.add('active');c2.classList.remove('active');}
+    else {c2.classList.add('active');c1.classList.remove('active');}
+    $('#kpi-moneda').textContent=currentCurrency;
+  }
+
+  function monthRangeList(count){
+    const now = new Date();
+    const arr = [];
+    for(let i=count-1;i>=0;i--){
+      const ref = new Date(now.getFullYear(), now.getMonth()-i, 1);
+      const label = ref.toLocaleString('es-ES',{month:'long', year:'numeric'});
+      arr.push({
+        year: ref.getFullYear(),
+        monthIndex: ref.getMonth(),
+        label: label.charAt(0).toUpperCase()+label.slice(1)
+      });
+    }
+    return arr;
+  }
+
+  function weekRangeList(count){
+    const today = new Date();
+    today.setHours(0,0,0,0);
+    const day = today.getDay();
+    const diffToMonday = (day + 6) % 7;
+    const currentMonday = new Date(today);
+    currentMonday.setDate(today.getDate() - diffToMonday);
+    const lastSunday = new Date(currentMonday);
+    lastSunday.setDate(currentMonday.getDate() - 1);
+    lastSunday.setHours(23,59,59,999);
+    const weeks = [];
+    let end = lastSunday;
+    for(let i=0;i<count;i++){
+      const start = new Date(end);
+      start.setDate(end.getDate() - 6);
+      start.setHours(0,0,0,0);
+      weeks.push({start: new Date(start), end: new Date(end)});
+      const prevEnd = new Date(start);
+      prevEnd.setDate(start.getDate() - 1);
+      prevEnd.setHours(23,59,59,999);
+      end = prevEnd;
+    }
+    weeks.reverse();
+    return weeks;
+  }
+
+  function dayRangeList(count){
+    const today = new Date();
+    today.setHours(0,0,0,0);
+    const days = [];
+    for(let i=count-1;i>=0;i--){
+      const d = new Date(today);
+      d.setDate(today.getDate() - i);
+      d.setHours(0,0,0,0);
+      days.push({date: d});
+    }
+    return days;
+  }
+
+  function renderStats(){
+    const cur=currentCurrency;
+    const list=(opsAll||[]).filter(o=>o.currency===cur);
+
+    const now=new Date();now.setHours(23,59,59,999);
+    const from30=new Date(now);from30.setDate(from30.getDate()-29);from30.setHours(0,0,0,0);
+    const last30=list.filter(o=>{const d=new Date(o.date);return d>=from30&&d<=now;});
+    const salidas30=last30.filter(o=>o.type==='Salida').reduce((a,o)=>a+(+o.amount||0),0);
+    const diasConOps = new Set(last30.map(o=>toYMD(o.date))).size || 1;
+    const promedio30=Math.round(salidas30/diasConOps);
+    const checks30=last30.filter(o=>!!o.verified).length;
+    $('#kpi-salidas-30').textContent=fmtNum(salidas30);
+    $('#kpi-promedio-30').textContent=fmtNum(promedio30);
+    $('#kpi-checks-30').textContent=fmtNum(checks30);
+
+    const months = monthRangeList(5);
+    const rowsM = months.map(({year,monthIndex,label})=>{
+      const a = new Date(year, monthIndex, 1, 0,0,0,0);
+      const b = new Date(year, monthIndex+1, 0, 23,59,59,999);
+      const inMonth = list.filter(o=>{
+        const d = new Date(o.date);
+        return d>=a && d<=b;
+      });
+      const salidasTot = inMonth
+        .filter(o=>o.type==='Salida')
+        .reduce((acc,o)=>acc+(+o.amount||0),0);
+      const daysWithOps = new Set(inMonth.map(o=>toYMD(o.date))).size;
+      const promDiario = daysWithOps>0 ? Math.round(salidasTot / daysWithOps) : 0;
+      const verificados = inMonth.filter(o=>!!o.verified).length;
+      return { label, salidasTot, promDiario, verificados };
+    });
+
+    const withVarM = rowsM.map((r,i,arr)=>{
+      if(i===0 || arr[i-1].promDiario===0){
+        return {...r, variacion:'—', arrowClass:''};
+      }
+      const prev = arr[i-1].promDiario;
+      const pct  = Math.round( ((r.promDiario - prev) / prev) * 100 );
+      const arrowClass = pct>=0 ? 'arrow-up' : 'arrow-down';
+      const arrowSym   = pct>=0 ? '🔼' : '🔽';
+      return {...r, variacion:`${arrowSym} ${pct}%`, arrowClass};
+    });
+
+    const mb=$('#months-body'); mb.innerHTML='';
+    withVarM.forEach(m=>{
+      const tr=document.createElement('tr');
+      const tdMes=document.createElement('td'); tdMes.textContent=m.label;
+      const tdSal=document.createElement('td'); tdSal.className='num'; tdSal.textContent=fmtNum(m.salidasTot);
+      const tdPro=document.createElement('td'); tdPro.className='num'; tdPro.textContent=fmtNum(m.promDiario);
+      const tdVar=document.createElement('td'); tdVar.className='num';
+      if(m.variacion==='—'){ tdVar.textContent='—'; }
+      else {
+        const span = document.createElement('span');
+        span.className = m.arrowClass;
+        span.textContent = m.variacion;
+        tdVar.appendChild(span);
+      }
+      const tdChk=document.createElement('td'); tdChk.className='num'; tdChk.textContent=fmtNum(m.verificados);
+      tr.appendChild(tdMes); tr.appendChild(tdSal); tr.appendChild(tdPro); tr.appendChild(tdVar); tr.appendChild(tdChk);
+      mb.appendChild(tr);
+    });
+
+    const weeks = weekRangeList(5);
+    const rowsW = weeks.map(({start,end})=>{
+      const inWeek = list.filter(o=>{
+        const d = new Date(o.date);
+        return d>=start && d<=end;
+      });
+      const salidasTot = inWeek
+        .filter(o=>o.type==='Salida')
+        .reduce((acc,o)=>acc+(+o.amount||0),0);
+      const daysWithOps = new Set(inWeek.map(o=>toYMD(o.date))).size;
+      const promDiario = daysWithOps>0 ? Math.round(salidasTot / daysWithOps) : 0;
+      const verificados = inWeek.filter(o=>!!o.verified).length;
+      const label = `Del ${start.getDate()} al ${end.getDate()}`;
+      return { label, salidasTot, promDiario, verificados };
+    });
+
+    const withVarW = rowsW.map((r,i,arr)=>{
+      if(i===0 || arr[i-1].promDiario===0){
+        return {...r, variacion:'—', arrowClass:''};
+      }
+      const prev = arr[i-1].promDiario;
+      const pct  = Math.round( ((r.promDiario - prev) / prev) * 100 );
+      const arrowClass = pct>=0 ? 'arrow-up' : 'arrow-down';
+      const arrowSym   = pct>=0 ? '🔼' : '🔽';
+      return {...r, variacion:`${arrowSym} ${pct}%`, arrowClass};
+    });
+
+    const wb=$('#weeks-body'); wb.innerHTML='';
+    withVarW.forEach(w=>{
+      const tr=document.createElement('tr');
+      const tdS=document.createElement('td'); tdS.textContent=w.label;
+      const tdSal=document.createElement('td'); tdSal.className='num'; tdSal.textContent=fmtNum(w.salidasTot);
+      const tdPro=document.createElement('td'); tdPro.className='num'; tdPro.textContent=fmtNum(w.promDiario);
+      const tdVar=document.createElement('td'); tdVar.className='num';
+      if(w.variacion==='—'){ tdVar.textContent='—'; }
+      else {
+        const span=document.createElement('span');
+        span.className=w.arrowClass;
+        span.textContent=w.variacion;
+        tdVar.appendChild(span);
+      }
+      const tdChk=document.createElement('td'); tdChk.className='num'; tdChk.textContent=fmtNum(w.verificados);
+      tr.appendChild(tdS); tr.appendChild(tdSal); tr.appendChild(tdPro); tr.appendChild(tdVar); tr.appendChild(tdChk);
+      wb.appendChild(tr);
+    });
+
+    const days = dayRangeList(5);
+    const rowsD = days.map(({date})=>{
+      const ymd = toYMD(date);
+      const inDay = list.filter(o => toYMD(o.date) === ymd);
+      const salidasTot = inDay
+        .filter(o=>o.type==='Salida')
+        .reduce((acc,o)=>acc+(+o.amount||0),0);
+      const daysWithOps = inDay.length>0 ? 1 : 0;
+      const promDiario = daysWithOps>0 ? Math.round(salidasTot / daysWithOps) : 0;
+      const verificados = inDay.filter(o=>!!o.verified).length;
+      const label = `${date.getDate()}-${date.getMonth()+1}`;
+      return { label, salidasTot, promDiario, verificados };
+    });
+
+    const withVarD = rowsD.map((r,i,arr)=>{
+      if(i===0 || arr[i-1].promDiario===0){
+        return {...r, variacion:'—', arrowClass:''};
+      }
+      const prev = arr[i-1].promDiario;
+      const pct  = Math.round( ((r.promDiario - prev) / prev) * 100 );
+      const arrowClass = pct>=0 ? 'arrow-up' : 'arrow-down';
+      const arrowSym   = pct>=0 ? '🔼' : '🔽';
+      return {...r, variacion:`${arrowSym} ${pct}%`, arrowClass};
+    });
+
+    const db=$('#days-body'); db.innerHTML='';
+    withVarD.forEach(d=>{
+      const tr=document.createElement('tr');
+      const tdDia=document.createElement('td'); tdDia.textContent=d.label;
+      const tdSal=document.createElement('td'); tdSal.className='num'; tdSal.textContent=fmtNum(d.salidasTot);
+      const tdPro=document.createElement('td'); tdPro.className='num'; tdPro.textContent=fmtNum(d.promDiario);
+      const tdVar=document.createElement('td'); tdVar.className='num';
+      if(d.variacion==='—'){ tdVar.textContent='—'; }
+      else{
+        const span=document.createElement('span');
+        span.className=d.arrowClass;
+        span.textContent=d.variacion;
+        tdVar.appendChild(span);
+      }
+      const tdChk=document.createElement('td'); tdChk.className='num'; tdChk.textContent=fmtNum(d.verificados);
+      tr.appendChild(tdDia); tr.appendChild(tdSal); tr.appendChild(tdPro); tr.appendChild(tdVar); tr.appendChild(tdChk);
+      db.appendChild(tr);
+    });
+
+    $('#kpi-moneda').textContent=cur;
+    paintStatsChips();
+  }
+
+  function paintCalcChips(){
+    const c1=$('#chipCUP_calc'),c2=$('#chipUSD_calc');
+    if(!c1||!c2) return;
+    if(currentCurrency==='CUP'){c1.classList.add('active');c2.classList.remove('active');}
+    else {c2.classList.add('active');c1.classList.remove('active');}
+  }
+  function updateCalcChips(){ paintCalcChips(); }
+  function getCountTotalFor(currency){
+    const obj = loadCounter(currency);
+    return computeCounterTotal(currency, obj);
+  }
+  function openCalcModal(){
+    const totals=calcTotals();
+    const fondo=currentCurrency==='CUP'?totals.cup:totals.usd;
+    const contado = getCountTotalFor(currentCurrency);
+    const bg=document.createElement('div');bg.className='modal-bg';
+    const m=document.createElement('div');m.className='modal';
+    m.innerHTML=`
+      <button class="close">✖</button>
+      <h3>Calculadora (${currentCurrency})</h3>
+      <label>Fondo actual (${currentCurrency})
+        <input id="calc-fondo" type="text" value="${fmtNum(fondo)}" readonly />
+      </label>
+      <label>Dinero físico contado (solo enteros)
+        <input id="calc-fisico" type="text" inputmode="numeric" placeholder="0" />
+      </label>
+      <div id="calc-msg" class="muted">Escribe el efectivo físico para comparar…</div>
+      <button class="ok">Cerrar</button>
+    `;
+    const close=()=>bg.remove(); m.querySelector('.close').onclick=close; bg.onclick=e=>{if(e.target===bg)close();}
+    m.querySelector('.ok').onclick=close;
+    const fisico=m.querySelector('#calc-fisico'); const msg=m.querySelector('#calc-msg');
+    const preset = formatIntLive(String(contado)).formatted;
+    fisico.value = preset;
+
+    fisico.addEventListener('input', ()=>{
+      const start = fisico.selectionStart;
+      const digitsBefore = countDigitsUpTo(fisico.value, start??fisico.value.length);
+      const { formatted } = formatIntLive(fisico.value);
+      fisico.value = formatted;
+      const newPos = caretFromDigitCount(formatted, digitsBefore);
+      fisico.setSelectionRange(newPos,newPos);
+      recompute();
+    });
+
+    function recompute(){
+      const fondoNum = parseInt(String(fondo)||'0',10)||0;
+      const { number } = formatIntLive(fisico.value);
+      const diff = fondoNum - number;
+      if (diff === 0){ msg.textContent='Todo está Cuadrado ✅'; msg.style.color='var(--success)'; }
+      else if (diff > 0){ msg.textContent=`Falta una Salida de ${fmtNum(diff)}`; msg.style.color='var(--danger)'; }
+      else { msg.textContent=`Sobra ${fmtNum(Math.abs(diff))} de dinero físico`; msg.style.color='var(--primary)'; }
+    }
+    bg.appendChild(m);document.body.appendChild(bg);
+    setTimeout(()=>{ fisico.focus(); recompute(); },50);
+  }
+
+  const DENOMS = {
+    CUP: [1000, 500, 200, 100, 50, 20, 10, 5],
+    USD: [100, 50, 20, 10, 5, 1],
+  };
+  const EXTRA_KEYS = ['M1','M2'];
+  function keyFor(currency){ return currency==='USD' ? 'counter_USD' : 'counter_CUP'; }
+  function loadCounter(currency){
+    const key = keyFor(currency);
+    const raw = localStorage.getItem(key);
+    const obj = raw ? JSON.parse(raw) : {};
+    const denoms = DENOMS[currency];
+    denoms.forEach(d=>{ if(typeof obj[d]==='undefined') obj[d]=0; });
+    EXTRA_KEYS.forEach(k=>{ if(typeof obj[k]==='undefined') obj[k]=0; });
+    return obj;
+  }
+  function saveCounter(currency, obj){ localStorage.setItem(keyFor(currency), JSON.stringify(obj)); }
+  function computeCounterTotal(currency, obj){
+    let total = 0;
+    for (const [k, v] of Object.entries(obj || {})) {
+      const n = parseInt(v || 0, 10) || 0;
+      if (EXTRA_KEYS.includes(k)) total += n;
+      else {
+        const den = parseInt(k, 10);
+        if (!isNaN(den)) total += den * n;
+      }
+    }
+    return total;
+  }
+
+  function renderCounter(){
+    const c1=$('#chipCUP_count'),c2=$('#chipUSD_count');
+    if(c1&&c2){
+      if(currentCurrency==='CUP'){c1.classList.add('active');c2.classList.remove('active');}
+      else {c2.classList.add('active');c1.classList.remove('active');}
+    }
+    const denoms = DENOMS[currentCurrency];
+    const state = loadCounter(currentCurrency);
+    const wrap = $('#counterBody'); wrap.innerHTML = '';
+    denoms.forEach(den=>{
+      const row = document.createElement('div'); row.className='counter-row';
+      const stored = parseInt(state[den] ?? 0, 10) || 0;
+      const displayVal = stored > 0 ? formatIntLive(String(stored)).formatted : '';
+      row.innerHTML = `
+        <div class="denom">${fmtNum(den)}</div>
+        <input type="text" inputmode="numeric" value="${displayVal}" placeholder="" />
+        <div class="subtotal">${fmtNum(stored * den)}</div>
+      `;
+      const input = row.querySelector('input');
+      input.addEventListener('input', ()=>{
+        const start = input.selectionStart ?? input.value.length;
+        const digitsBefore = countDigitsUpTo(input.value, start);
+        const { formatted, number, digits } = formatIntLive(input.value);
+        if (digits.length === 0) {
+          input.value = '';
+          state[den] = 0;
+        } else {
+          input.value = formatted;
+          state[den] = number;
+          const newPos = caretFromDigitCount(formatted, digitsBefore);
+          input.setSelectionRange(newPos,newPos);
+        }
+        saveCounter(currentCurrency, state);
+        row.querySelector('.subtotal').textContent = fmtNum((state[den]||0) * den);
+        const total = computeCounterTotal(currentCurrency, state);
+        $('#countTotal').textContent = `Total: ${fmtNum(total)}`;
+      });
+      wrap.appendChild(row);
+    });
+    EXTRA_KEYS.forEach((key, idx)=>{
+      const label = `Monto ${idx+1}`;
+      const row = document.createElement('div'); row.className='counter-row';
+      const stored = parseInt(state[key] ?? 0, 10) || 0;
+      const displayVal = stored > 0 ? formatIntLive(String(stored)).formatted : '';
+      row.innerHTML = `
+        <div class="denom">${label}</div>
+        <input type="text" inputmode="numeric" value="${displayVal}" placeholder="" />
+        <div class="subtotal">${fmtNum(stored)}</div>
+      `;
+      const input = row.querySelector('input');
+      input.addEventListener('input', ()=>{
+        const start = input.selectionStart ?? input.value.length;
+        const digitsBefore = countDigitsUpTo(input.value, start);
+        const { formatted, number, digits } = formatIntLive(input.value);
+        if (digits.length === 0) {
+          input.value = '';
+          state[key] = 0;
+        } else {
+          input.value = formatted;
+          state[key] = number;
+          const newPos = caretFromDigitCount(formatted, digitsBefore);
+          input.setSelectionRange(newPos,newPos);
+        }
+        saveCounter(currentCurrency, state);
+        row.querySelector('.subtotal').textContent = fmtNum(state[key]||0);
+        const total = computeCounterTotal(currentCurrency, state);
+        $('#countTotal').textContent = `Total: ${fmtNum(total)}`;
+      });
+      wrap.appendChild(row);
+    });
+    const total = computeCounterTotal(currentCurrency, state);
+    $('#countTotal').textContent = `Total: ${fmtNum(total)}`;
+  }
+
+  function clearCounter(){
+    if(!confirm('¿Seguro que deseas borrar todas las cantidades del contador?')) return;
+    const denoms = DENOMS[currentCurrency];
+    const zero = {};
+    denoms.forEach(d=>zero[d]=0);
+    EXTRA_KEYS.forEach(k=>zero[k]=0);
+    saveCounter(currentCurrency, zero);
+    renderCounter();
+  }
+
+  function showView(view){
+    activeView=view;
+    const vReg=$('#view-registro'), vSta=$('#view-stats'),
+          vCal=$('#view-calc'), vCnt=$('#view-count'),
+          vSec=$('#view-security');
+    if(view==='registro'){
+      vReg.classList.remove('hidden'); vSta.classList.add('hidden');
+      vCal.classList.add('hidden'); vCnt.classList.add('hidden'); vSec.classList.add('hidden');
+      page=getTotalPages(); render();
+    }else if(view==='stats'){
+      vSta.classList.remove('hidden'); vReg.classList.add('hidden');
+      vCal.classList.add('hidden'); vCnt.classList.add('hidden'); vSec.classList.add('hidden');
+      paintStatsChips(); renderStats();
+    }else if(view==='calc'){
+      vCal.classList.remove('hidden'); vReg.classList.add('hidden');
+      vSta.classList.add('hidden'); vCnt.classList.add('hidden'); vSec.classList.add('hidden');
+      paintCalcChips(); openCalcModal();
+    }else if(view==='count'){
+      vCnt.classList.remove('hidden'); vReg.classList.add('hidden');
+      vSta.classList.add('hidden'); vCal.classList.add('hidden'); vSec.classList.add('hidden');
+      renderCounter();
+    }else{
+      vSec.classList.remove('hidden'); vReg.classList.add('hidden');
+      vSta.classList.add('hidden'); vCal.classList.add('hidden'); vCnt.classList.add('hidden');
+      renderSecurityView();
+    }
+  }
+
+ document.getElementById('loading').style.display = 'flex';
+
+async function handleSession(session){
+  const loadingEl = document.getElementById('loading');
+
+  if (session) {
+    // Usuario logueado
+    window.currentUserEmail = session.user.email;
+    const short = shortNameByEmail(window.currentUserEmail);
+
+    $('#user-info').style.display = 'flex';
+    $('#activeUserShort').textContent = short;
+    $('#login').classList.add('hidden');
+    $('#content').classList.remove('hidden');
+
+    await loadSecurity(session.user);
+    startRealtime();
+    await fetchAll();
+    showView('registro');
+    await maybeAskForPin(session.user);
+  } else {
+    // Sin sesión → mostrar login
+    window.currentUserEmail = null;
+    $('#user-info').style.display = 'none';
+    $('#content').classList.add('hidden');
+    $('#login').classList.remove('hidden');
+
+    securityState = {
+      loaded:false,
+      pin_enabled:false,
+      has_pin:false,
+      pin:null,
+      user_id:null,
+      email:null
+    };
+  }
+
+  loadingEl.style.display = 'none';
+}
+
+// 1) Al cargar la página, preguntar a Supabase si ya hay sesión
+(async function initAuth(){
+  try {
+    const { data: { session }, error } = await supabase.auth.getSession();
+    if (error) {
+      console.error('getSession error', error);
+    }
+    await handleSession(session || null);
+  } catch (e) {
+    console.error('initAuth error', e);
+    document.getElementById('loading').style.display = 'none';
+    document.getElementById('login').classList.remove('hidden');
+  }
+})();
+
+// 2) Escuchar cambios posteriores (login / logout)
+supabase.auth.onAuthStateChange(async (event, session) => {
+  if (event === 'SIGNED_IN' || event === 'SIGNED_OUT') {
+    await handleSession(session || null);
+  }
+});
+
+  function attach(){
+    const menuBtn=$('#menuBtn'),menuDrop=$('#menuDrop');
+    if(menuBtn){
+      menuBtn.onclick=()=>{const open=menuDrop.style.display==='block';menuDrop.style.display=open?'none':'block';};
+      document.addEventListener('click',e=>{ if(!menuDrop.contains(e.target)&&e.target!==menuBtn){menuDrop.style.display='none';} });
+    }
+    $('#goRegistro')?.addEventListener('click',()=>{menuDrop.style.display='none';showView('registro');});
+    $('#goStats')?.addEventListener('click',()=>{menuDrop.style.display='none';showView('stats');});
+    $('#goCalc')?.addEventListener('click',()=>{menuDrop.style.display='none';showView('calc');});
+    $('#goCount')?.addEventListener('click',()=>{menuDrop.style.display='none';showView('count');});
+    $('#goSecurity')?.addEventListener('click',()=>{menuDrop.style.display='none';showView('security');});
+
+    $('#chipCUP').onclick=()=>{currentCurrency='CUP';$('#chipCUP').classList.add('active');$('#chipUSD').classList.remove('active');
+      if(activeView==='registro'){page=getTotalPages();render();} else if(activeView==='stats'){paintStatsChips();renderStats();} else if(activeView==='calc'){paintCalcChips();openCalcModal();} else if(activeView==='count'){renderCounter();}};
+    $('#chipUSD').onclick=()=>{currentCurrency='USD';$('#chipUSD').classList.add('active');$('#chipCUP').classList.remove('active');
+      if(activeView==='registro'){page=getTotalPages();render();} else if(activeView==='stats'){paintStatsChips();renderStats();} else if(activeView==='calc'){paintCalcChips();openCalcModal();} else if(activeView==='count'){renderCounter();}};
+
+    $('#chipCUP_stats').onclick=()=>{currentCurrency='CUP';paintStatsChips();renderStats();};
+    $('#chipUSD_stats').onclick=()=>{currentCurrency='USD';paintStatsChips();renderStats();};
+    $('#chipCUP_calc').onclick=()=>{currentCurrency='CUP';paintCalcChips();openCalcModal();};
+    $('#chipUSD_calc').onclick=()=>{currentCurrency='USD';paintCalcChips();openCalcModal();};
+    $('#btnNewCalc').onclick=()=>openCalcModal();
+    $('#chipCUP_count').onclick=()=>{currentCurrency='CUP';renderCounter();};
+    $('#chipUSD_count').onclick=()=>{currentCurrency='USD';renderCounter();};
+    $('#btnClearCount').onclick=clearCounter;
+    $('#btnEntrada').onclick=()=>openQuickModal('Entrada');
+    $('#btnSalida').onclick=()=>openQuickModal('Salida');
+    $('#filterSelect').onchange=e=>{currentFilter=e.target.value;page=getTotalPages();render();};
+
+    const search = document.querySelector('#searchDesc');
+    if (search) {
+      let t=null;
+      search.addEventListener('input', () => {
+        currentSearch = search.value;
+        clearTimeout(t);
+        t=setTimeout(()=>{ page=1; render(); }, 150);
+      });
+    }
+
+    document.querySelector('#btnCSV')?.addEventListener('click', () => {
+      try {
+        let base = [...opsAll].filter(o => o.currency === currentCurrency).sort((a,b)=>new Date(a.date)-new Date(b.date));
+        base = applyFilter(base);
+        let saldo = 0;
+        const rows = base.map(o => {
+          const delta = (o.type === 'Entrada' ? 1 : -1) * (+o.amount || 0);
+          saldo += delta;
+          const entradas = o.type === 'Entrada' ? o.amount : '';
+          const salidas  = o.type === 'Salida'  ? o.amount : '';
+          return {
+            fecha: fmtDateShortISO(o.date),
+            entradas,
+            salidas,
+            descripcion: o.description || '',
+            saldo,
+            por: o.added_by || ''
+          };
+        });
+        const headers = ['Fecha','Entradas','Salidas','Descripción','Saldo','Por'];
+        const lines = [
+          headers.join(','),
+          ...rows.map(r => [
+            r.fecha,
+            r.entradas,
+            r.salidas,
+            `"${String(r.descripcion).replaceAll('"','""')}"`,
+            r.saldo,
+            r.por
+          ].join(','))
+        ];
+        const csv = lines.join('\n');
+        const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+        const url  = URL.createObjectURL(blob);
+        const a    = document.createElement('a');
+        a.href = url;
+        const stamp = new Date().toISOString().slice(0,10);
+        a.download = `operaciones_${currentCurrency}_${stamp}.csv`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      } catch (e) {
+        console.error('CSV error:', e);
+        alert('No se pudo exportar CSV.');
+      }
+    });
+
+    $('#prevPage').onclick=()=>{if(page>1){page--;render();}};
+    $('#nextPage').onclick=()=>{const t=getTotalPages();if(page<t){page++;render();}};
+    $('#btnSavePin')?.addEventListener('click', ()=>{ savePinConfig(); });
+  }
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',attach);else attach();
+
+  function openQuickModal(tipoInicial){
+    let tipo = tipoInicial;
+    const bg=document.createElement('div');bg.className='modal-bg';
+    const m=document.createElement('div');m.className='modal';
+    m.innerHTML=`
+      <button class="close">✖</button>
+      <h3 style="margin-right:64px">Nueva operación</h3>
+      <div style="display:flex;gap:8px;margin-top:2px">
+        <button class="tEntrada btn" type="button">Entrada</button>
+        <button class="tSalida btn" type="button">Salida</button>
+      </div>
+      <label>Monto (solo enteros)
+        <input id="montoDisplay" type="text" inputmode="numeric" placeholder="0" autocomplete="off" />
+        <div class="muted">Escribe de corrido: se formatea como <b>1.000.000</b>.</div>
+      </label>
+      <label>Descripción
+        <input id="desc" type="text" placeholder="Obligatorio" />
+      </label>
+      <button class="ok">Registrar</button>
+    `;
+    const paint=()=>{
+      const e=m.querySelector('.tEntrada'), s=m.querySelector('.tSalida');
+      if(tipo==='Entrada'){ e.style.background='var(--primary)'; e.style.color='#fff'; s.style.background='var(--thead)'; s.style.color='var(--text)'; }
+      else { s.style.background='var(--primary)'; s.style.color='#fff'; e.style.background='var(--thead)'; e.style.color='var(--text)'; }
+    };
+    paint();
+    m.querySelector('.tEntrada').onclick=()=>{ tipo='Entrada'; paint(); };
+    m.querySelector('.tSalida').onclick=()=>{ tipo='Salida';  paint(); };
+
+    const montoDisplay = m.querySelector('#montoDisplay');
+    const descInput = m.querySelector('#desc');
+    montoDisplay.addEventListener('input', ()=>{
+      const start = montoDisplay.selectionStart ?? montoDisplay.value.length;
+      const digitsBefore = countDigitsUpTo(montoDisplay.value, start);
+      const { formatted } = formatIntLive(montoDisplay.value);
+      montoDisplay.value = formatted;
+      const newPos = caretFromDigitCount(formatted, digitsBefore);
+      montoDisplay.setSelectionRange(newPos, newPos);
+    });
+
+    m.querySelector('.ok').onclick=async()=>{
+      const { number } = formatIntLive(montoDisplay.value);
+      const desc = descInput.value.trim();
+      if(number<=0){alert('Monto inválido');return;}
+      if(!desc){alert('Descripción obligatoria');return;}
+      await addOperation({currency:currentCurrency,type:tipo,amount:number,description:desc});
+      toast(); page=getTotalPages(); render(); bg.remove();
+    };
+
+    const close=()=>bg.remove(); m.querySelector('.close').onclick=close; bg.onclick=e=>{if(e.target===bg)close();}
+    bg.appendChild(m);document.body.appendChild(bg);
+    setTimeout(()=>montoDisplay.focus(),50);
+  }
+
+  function openEditModal(op){
+    const bg=document.createElement('div');bg.className='modal-bg';
+    const m=document.createElement('div');m.className='modal';
+    m.innerHTML=`<button class="close">✖</button><h3>Editar</h3>
+      <div style="display:flex;gap:6px"><button class="tEntrada btn">Entrada</button><button class="tSalida btn">Salida</button></div>
+      <label>Monto (solo enteros)
+        <input id="montoDisplay" type="text" inputmode="numeric" />
+        <div class="muted">Escribe de corrido: se formatea como <b>1.000.000</b>.</div>
+      </label>
+      <label>Descripción<input id="desc" type="text" /></label>
+      <button class="ok">Guardar</button>`;
+    let tipo=op.type;
+    const paint=()=>{m.querySelector('.tEntrada').style.background=tipo==='Entrada'?'var(--primary)':'var(--thead)';
+      m.querySelector('.tEntrada').style.color=tipo==='Entrada'?'#fff':'var(--text)';
+      m.querySelector('.tSalida').style.background=tipo==='Salida'?'var(--primary)':'var(--thead)';
+      m.querySelector('.tSalida').style.color=tipo==='Salida'?'#fff':'var(--text)';};
+    paint();
+
+    const montoDisplay = m.querySelector('#montoDisplay');
+    const descInput = m.querySelector('#desc');
+    montoDisplay.value = formatIntLive(String(op.amount)).formatted || fmtNum(op.amount);
+    montoDisplay.addEventListener('input', ()=>{
+      const start = montoDisplay.selectionStart ?? montoDisplay.value.length;
+      const digitsBefore = countDigitsUpTo(montoDisplay.value, start);
+      const { formatted } = formatIntLive(montoDisplay.value);
+      montoDisplay.value = formatted;
+      const newPos = caretFromDigitCount(formatted, digitsBefore);
+      montoDisplay.setSelectionRange(newPos, newPos);
+    });
+
+    descInput.value = op.description || '';
+    m.querySelector('.tEntrada').onclick=()=>{tipo='Entrada';paint();};
+    m.querySelector('.tSalida').onclick=()=>{tipo='Salida';paint();};
+    m.querySelector('.ok').onclick=async()=>{
+      const { number } = formatIntLive(montoDisplay.value);
+      const desc=descInput.value.trim();
+      if(number<=0){alert('Monto inválido');return;}
+      if(!desc){alert('Descripción obligatoria');return;}
+      await editOperation(op.id,{type:tipo,amount:number,description:desc});
+      toast('Guardado'); if(activeView==='registro') render(); else renderStats(); bg.remove();
+    };
+    m.querySelector('.close').onclick=()=>bg.remove();
+    bg.onclick=e=>{if(e.target===bg)bg.remove();}
+    bg.appendChild(m);document.body.appendChild(bg);
+  }
+
+</script>
+</body>
+</html>
